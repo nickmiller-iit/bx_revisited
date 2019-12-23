@@ -17,7 +17,7 @@ sraAll=$(sra428G) $(sraH88)
 # bad idea. Downloads frequently fail and fastq-dump will leave partial files
 # making it hard to know if download was successful or not. Prefetch at least
 # cleans up after itself if it fails, so we know what we don't have and need
-# to try again.
+# to try again. Probably best not to run this step in parallel.
 
 sraDir=sra
 
@@ -34,6 +34,35 @@ $(sraFiles): | $(sraDir)
 
 
 .PHONY: sra-dl
-.NOTPARALLEL: sra-dl
+
 
 sra-dl: $(sraFiles)
+
+# Extract fastq
+
+fastqDir=fastq
+
+$(fastqDir):
+	if [ ! -d $(fastqDir) ]; then mkdir $(fastqDir); fi
+
+p1Fastq=$(addprefix $(fastqDir)/,$(addsuffix _1.fastq, $(sraAll)))
+p2Fastq=$(addprefix $(fastqDir)/,$(addsuffix _2.fastq, $(sraAll)))
+allFastq=$(p1Fastq) $(p2Fastq)
+
+# Note to future me: The automatic $@ variable will reference each element in a
+# list of targets. Use the read 1 files as "trigger" targets. The read 2 files
+# will get made automatically, and it's unlikely we would ever want one set
+# of mates without the other.
+
+
+
+fastqDumpOpts=-O $(fastqDir) --split-3 --readids
+
+$(p1Fastq): | $(fastqDir)
+	conda run --name bx_sratools \
+	fastq-dump \
+	$(fastqDumpOpts) \
+	$(subst $(fastqDir),$(sraDir),$(subst _1.fastq,.sra,$@))
+
+.PHONY: extract-fastq
+extract-fastq: $(p1Fastq)

@@ -5,36 +5,35 @@
 # SRA Accessions
 
 ## 428G-exposed samples
-Sra428G=SRR1611192 SRR1611196 SRR1611197 SRR1611199 SRR1611246 SRR1611296
+sra428G=SRR1611192 SRR1611196 SRR1611197 SRR1611199 SRR1611246 SRR1611296
 ## H88-exposed samples
-SraH88=SRR1614633 SRR1614695 SRR1614743 SRR1614766 SRR1614800 SRR1614824
+sraH88=SRR1614633 SRR1614695 SRR1614743 SRR1614766 SRR1614800 SRR1614824
 ## Combined
-SraAll=$(Sra428G) $(SraH88)
+sraAll=$(sra428G) $(sraH88)
 
-# Read files
+# SRA downloads
+#
+# Download data from SRA. Note that direct downloading fastq via fastq-dump is
+# bad idea. Downloads frequently fail and fastq-dump will leave partial files
+# making it hard to know if download was successful or not. Prefetch at least
+# cleans up after itself if it fails, so we know what we don't have and need
+# to try again.
 
-readDir=reads
+sraDir=sra
 
-$(readDir):
-	if [ ! -d $(readDir) ]; then mkdir $(readDir); fi
+$(sraDir):
+	if [ ! -d $(sraDir) ]; then mkdir $(sraDir); fi
 
-p1Reads=$(addprefix $(readDir)/,$(addsuffix _1.fastq, $(SraAll)))
-p2Reads=$(addprefix $(readDir)/,$(addsuffix _2.fastq, $(SraAll)))
-reads = $(p1Reads) $(p2Reads)
+sraFiles=$(addprefix $(sraDir)/, $(addsuffix .sra, $(sraAll)))
 
-# Note to future me: The automatic $@ variable will reference each element in a
-# list of targets. Use the read 1 rules as "trigger" targets. The read 2 files
-# will get made automatically, and it's unlikely we would ever want to
-# download on set of mates without the other.
-
-fastqDumpOpts=-O $(readDir) --split-3 --readids
-
-$(p1Reads): | $(readDir)
+$(sraFiles): | $(sraDir)
 	conda run --name bx_sratools \
-	fastq-dump \
-	$(fastqDumpOpts) \
-	$(subst $(readDir)/,,$(subst _1.fastq,,$@))
+	prefetch \
+	-o $@ \
+	$(notdir $(basename $@))
+
 
 .PHONY: sra-dl
+.NOTPARALLEL: sra-dl
 
-sra-dl: $(p1Reads)
+sra-dl: $(sraFiles)

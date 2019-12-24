@@ -97,3 +97,36 @@ $(refFile): $(refDl)
 
 .PHONY: ref-dl
 ref-dl: $(refFile)
+
+################################################################################
+#                                  Kallisto                                    #
+################################################################################
+
+kallistoIdx=$(addsuffix .idx, $(refFile))
+
+$(kallistoIdx): $(refFile)
+	conda run --name bx_kallisto \
+	kallisto index -i $(kallistoIdx) $(refFile)
+
+#
+# kalliso quant produces a directory of output files
+#
+
+kallistoBaseDir=kallisto
+
+$(kallistoBaseDir):
+	if [ ! -d $(kallistoBaseDir) ]; then mkdir $(kallistoBaseDir); fi
+
+kallistoDirs=$(addprefix $(kallistoBaseDir)/,$(sraAll))
+
+kallistoOpts=-b 100 --seed 20191224 -i $(kallistoIdx)
+
+$(kallistoDirs): $(allFastq) $(kallistoIdx) | $(kallistoBaseDir)
+	conda run --name bx_kallisto \
+	kallisto quant $(kallistoOpts) \
+	-o $@ \
+	$(addsuffix _1.fastq, $(subst $(kallistoBaseDir), $(fastqDir), $@)) \
+	$(addsuffix _2.fastq, $(subst $(kallistoBaseDir), $(fastqDir), $@))
+
+.PHONY: quant
+quant: $(kallistoDirs)

@@ -66,3 +66,34 @@ $(p1Fastq): | $(fastqDir)
 
 .PHONY: extract-fastq
 extract-fastq: $(p1Fastq)
+
+
+################################################################################
+#                       Reference transcript set                               #
+################################################################################
+
+#
+# Download reference transcript sequences from NCBI
+#
+
+refDir=ref
+
+$(refDir):
+	if [ ! -d $(refDir) ]; then mkdir $(refDir); fi
+
+refURL=ftp.ncbi.nlm.nih.gov/genomes/all/GCF/003/013/835/GCF_003013835.1_Dvir_v2.0/GCF_003013835.1_Dvir_v2.0_rna.fna.gz
+
+refDl=$(addprefix $(refDir)/, GCF_003013835.1_Dvir_v2.0_rna.fna.gz)
+
+refFile=$(subst .gz,,$(refDl))
+
+$(refDl): | $(refDir)
+	wget \
+	--directory-prefix $(refDir) \
+	$(refURL)
+
+$(refFile): $(refDl)
+	zcat $(refDl) > $(refFile)
+
+.PHONY: ref-dl
+ref-dl: $(refFile)

@@ -1,0 +1,174 @@
+---
+title: "Sleuth analysis of benzoxazinoid-responsive genes"
+output: html_notebook
+---
+
+A reanalysis of the data from Miller & Zhao (2015), using the NCBI gene annotations of the WCR genome. Note that 428G is the mutant (~no bx) line, H88 is the wild-type.
+
+# Load needed libraries
+
+```{r loadLibs, warning=FALSE}
+library(sleuth)
+library(cowplot)
+```
+
+# Load table of sample info
+
+```{r sampleInfo}
+sampleInfo <- read.table(file = "sample.info",
+                         header = T,
+                         colClasses = c("character",
+                                        "factor",
+                                        "character")
+)
+```
+
+# Create new sleuth object
+
+```{r bxSleuth, warning=FALSE}
+bxSleuth <- sleuth_prep(sampleInfo,
+                        extra_bootstrap_summary = T)
+```
+
+# Basic QC
+
+Generate a PCA plot
+
+```{r PCA}
+plot_pca(bxSleuth, 
+         color_by = "condition")
+
+```
+No obvious clustering, but that should not be a surprise. In Miller & Zhao (2015) we only found a handful of differentially-expressed genes, if the same is true here, we would not expect clustering by treatment. The important point is that there are no obvious outliers.
+
+# Testing for differential gene expression.
+
+Use a likelihood ratio test (LRT).
+
+Fit the full mode, with condition as the treatment, and reduced model with no treatement
+
+```{r fullModel}
+bxSleuth <- sleuth_fit(bxSleuth,
+                       formula = ~condition,
+                       fit_name = "full")
+
+bxSleuth <- sleuth_fit(bxSleuth,
+                       formula = ~1,
+                       fit_name = "reduced")
+
+bxSleuth <- sleuth_lrt(bxSleuth, 
+                       "reduced",
+                       "full")
+```
+Check names of models and tests.
+
+```{r}
+models(bxSleuth)
+tests(bxSleuth)
+```
+
+# LRT results
+
+Extract results from the sleuth object
+
+```{r bxResults}
+bxResultsLRT <- sleuth_results(bxSleuth,
+                            test = "reduced:full",
+                            test_type = "lrt",
+                            show_all = F)
+```
+
+```{r}
+head(bxResultsLRT)
+```
+
+
+Doesn't look like we have anything significant, but check at FDR = 0.1.
+
+```{r}
+subset(bxResultsLRT, qval <= 0.1)
+```
+
+Nope!
+
+Let's take a look at a couple of genes to see if we can get a sense of what's going on.
+
+The gene with the lowest q-value (q = 0.89)
+
+```{r}
+plot_bootstrap(bxSleuth, "XM_028278481.1")
+
+```
+
+
+The CYP9 gene that we found in Miller & Zhao (2015)
+
+
+```{r}
+plot_bootstrap(bxSleuth, "XM_028276758.1")
+
+```
+
+
+If I recall correctly, the result for the CYP9 gene is consistent with what we saw in the original analysis: upregulated in most H88-exposed larvae, but not in a couple of them.
+
+I wonder if the LRT is abit conservative, what happens if we run the Wald test instead?
+
+# Wald test
+
+```{r WaldTest}
+bxSleuth <- sleuth_wt(bxSleuth,
+                      "conditionh88")
+
+tests(bxSleuth)
+```
+
+Extract the results
+
+```{r bxResultsWald}
+bxResultsWald <- sleuth_results(bxSleuth,
+                                test = "conditionh88",
+                                test_type = "wt")
+
+head(bxResultsWald)
+```
+
+Looks like we do have a couple of sig results at FDR <= 0.1.
+
+```{r}
+bxResultsWaldSig <-subset(bxResultsWald, qval <= 0.1)
+
+bxResultsWaldSig
+```
+
+Let's take a look at the expression levels
+
+```{r}
+plot_bootstrap(bxSleuth,
+               bxResultsWaldSig$target_id[1])
+```
+
+```{r}
+plot_bootstrap(bxSleuth,
+               bxResultsWaldSig$target_id[2])
+```
+
+So, 1 up, and one down.
+
+What are they?
+
+
+Upregulated gene
+
+```{bash echo=FALSE}
+grep "XM_028278481.1" ../ref/GCF_003013835.1_Dvir_v2.0_rna.fna
+```
+
+Another cyp!
+
+Downregulated gene
+
+```{bash}
+grep "XM_028280409.1" ../ref/GCF_003013835.1_Dvir_v2.0_rna.fna
+```
+

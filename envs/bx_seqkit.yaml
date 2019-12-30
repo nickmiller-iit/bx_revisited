@@ -1,0 +1,5 @@
+name: bx_seqkit
+channels:
+ - bioconda
+dependencies:
+ - seqkit=0.11.0

@@ -130,3 +130,30 @@ $(kallistoDirs): $(allFastq) $(kallistoIdx) | $(kallistoBaseDir)
 
 .PHONY: quant
 quant: $(kallistoDirs)
+
+################################################################################
+#                 Extract sequences of DE transcripts                          #
+################################################################################
+
+#
+# IDs for DE transcripts are written out from sleuth script.
+#
+
+sigGenesIDs=R/sigDEGenes
+
+sigGenesDir=sigGenes
+
+$(sigGenesDir):
+	if [ ! -d $(sigGenesDir) ]; then mkdir $(sigGenesDir); fi
+
+sigGenesFasta=sigDEGenes.fasta
+
+sigGenesFile=$(addprefix $(sigGenesDir)/,$(sigGenesFasta))
+
+$(sigGenesFile): $(sigGenesIDs) $(refFile) | $(sigGenesDir)
+	conda run --name bx_seqkit \
+	seqkit grep -f $(sigGenesIDs) $(refFile) > $(sigGenesFile)
+
+.PHONY: extractSigGenes
+
+extractSigGenes: $(sigGenesFile)

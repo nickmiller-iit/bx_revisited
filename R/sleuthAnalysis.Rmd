@@ -171,4 +171,14 @@ Downregulated gene
 ```{bash}
 grep "XM_028280409.1" ../ref/GCF_003013835.1_Dvir_v2.0_rna.fna
 ```
+# Write out IDs of significantly DEGs
+
+```{r}
+write.table(bxResultsWaldSig[1], 
+            file = "sigDEGenes",
+            row.names = F,
+            col.names = F,
+            quote = F)
+
+```
 
